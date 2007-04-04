@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 BEGIN {
-    our $VERSION = '0.01';
+    our $VERSION = '0.02';
 
     require XSLoader;
     XSLoader::load('Math::Int64', $VERSION);
@@ -15,40 +15,78 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(int64
                     int64_to_number
                     net_to_int64 int64_to_net
-                    native_to_int64 int64_to_native);
+                    native_to_int64 int64_to_native
+                    uint64
+                    uint64_to_number
+                    net_to_uint64 uint64_to_net
+                    native_to_uint64 uint64_to_native);
 
 
-use overload ( '+' => \&add,
-               '+=' => \&add,
-               '-' => \&sub,
-               '-=' => \&sub,
-               '*' => \&mul,
-               '*=' => \&mul,
-               '/' => \&div,
-               '/=' => \&div,
-               '%' => \&rest,
-               '%=' => \&rest,
-               'neg' => \&neg,
-               '++' => \&inc,
-               '--' => \&dec,
-               '!' => \&not,
-               '~' => \&bnot,
-               '&' => \&and,
-               '|' => \&or,
-               '^' => \&xor,
-               '<<' => \&left,
-               '>>' => \&right,
-               '<=>' => \&spaceship,
-               '>' => \&gtn,
-               '<' => \&ltn,
-               '>=' => \&gen,
-               '<=' => \&len,
-               '==' => \&eqn,
-               '!=' => \&nen,
-               'bool' => \&bool,
-               '0+' => \&number,
-               '""' => \&string,
-               '=' => \&clone,
+use overload ( '+' => \&_add,
+               '+=' => \&_add,
+               '-' => \&_sub,
+               '-=' => \&_sub,
+               '*' => \&_mul,
+               '*=' => \&_mul,
+               '/' => \&_div,
+               '/=' => \&_div,
+               '%' => \&_rest,
+               '%=' => \&_rest,
+               'neg' => \&_neg,
+               '++' => \&_inc,
+               '--' => \&_dec,
+               '!' => \&_not,
+               '~' => \&_bnot,
+               '&' => \&_and,
+               '|' => \&_or,
+               '^' => \&_xor,
+               '<<' => \&_left,
+               '>>' => \&_right,
+               '<=>' => \&_spaceship,
+               '>' => \&_gtn,
+               '<' => \&_ltn,
+               '>=' => \&_gen,
+               '<=' => \&_len,
+               '==' => \&_eqn,
+               '!=' => \&_nen,
+               'bool' => \&_bool,
+               '0+' => \&_number,
+               '""' => \&_string,
+               '=' => \&_clone,
+               fallback => 1 );
+
+package Math::UInt64;
+use overload ( '+' => \&_add,
+               '+=' => \&_add,
+               '-' => \&_sub,
+               '-=' => \&_sub,
+               '*' => \&_mul,
+               '*=' => \&_mul,
+               '/' => \&_div,
+               '/=' => \&_div,
+               '%' => \&_rest,
+               '%=' => \&_rest,
+               'neg' => \&_neg,
+               '++' => \&_inc,
+               '--' => \&_dec,
+               '!' => \&_not,
+               '~' => \&_bnot,
+               '&' => \&_and,
+               '|' => \&_or,
+               '^' => \&_xor,
+               '<<' => \&_left,
+               '>>' => \&_right,
+               '<=>' => \&_spaceship,
+               '>' => \&_gtn,
+               '<' => \&_ltn,
+               '>=' => \&_gen,
+               '<=' => \&_len,
+               '==' => \&_eqn,
+               '!=' => \&_nen,
+               'bool' => \&_bool,
+               '0+' => \&_number,
+               '""' => \&_string,
+               '=' => \&_clone,
                fallback => 1 );
 
 1;
@@ -71,7 +109,8 @@ Math::Int64 - Manipulate 64 bits integers in Perl
 
 =head1 DESCRIPTION
 
-This module adds support for 64 bit integers to Perl.
+This module adds support for 64 bit integers, signed and unsigned, to
+Perl.
 
 =head2 EXPORTABLE FUNCTIONS
 
@@ -129,6 +168,22 @@ For instance:
     my $n = int64_to_number($i);
     print "int64:$i => perl:$n\n";
   }
+
+
+=item uint64
+
+=item uint64_to_number
+
+=item net_to_uint64
+
+=item uint64_to_net
+
+=item native_to_uint64
+
+=item uint64_to_native
+
+This functions are similar to their int64 counterparts, but
+manipulate 64 bit unsigned integers.
 
 =back
 

@@ -18,11 +18,20 @@ else {
 # we force the DOUBLE backend for the moment...
 $backend = 'DOUBLE';
 
-unless ($Config::Config{d_atoll} and $Config::Config{i64type}
-        and $Config::Config{d_int64_t} and $Config::Config{i64size} == 8) {
+unless ($Config::Config{i64type} and
+        $Config::Config{d_int64_t} and
+        $Config::Config{i64size} == 8) {
     die "Your C compiler does not have enough support for int64 values\n";
 }
 
+my @define = ("INT64_BACKEND_" . $backend);
+
+for (qw(strtoll strtoull atoll atoull)) {
+    push @define, "INT64_HAS_" . uc $_
+        if $Config::Config{"d_$_"};
+}
+
+my $define = join (' ', map { "-D$_" } @define);
 
 WriteMakefile( NAME              => 'Math::Int64',
                VERSION_FROM      => 'lib/Math/Int64.pm',
@@ -30,6 +39,6 @@ WriteMakefile( NAME              => 'Math::Int64',
                ABSTRACT_FROM  => 'lib/Math/Int64.pm', # retrieve abstract from module
                AUTHOR         => 'Salvador Fandino <sfandino@yahoo.com>',
                LIBS              => [''], # e.g., '-lm'
-               DEFINE            => "-DINTEGER64_BACKEND_$backend",
+               DEFINE            => $define,
                INC               => '-I.', # e.g., '-I. -I/usr/include/other'
 );

@@ -2,9 +2,10 @@ Changes
 Int64.xs
 Makefile.PL
 MANIFEST
+META.yml
 ppport.h
 README
 t/Math-Int64.t
+t/Math-UInt64.t
 t/pods.t
 lib/Math/Int64.pm
-META.yml                                 Module meta-data (added by MakeMaker)
