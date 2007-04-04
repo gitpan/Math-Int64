@@ -1,0 +1,6 @@
+Revision history for Perl extension Math::Int64.
+
+0.01  Fri Mar 30 13:49:34 2007
+	- original version; created by h2xs 1.23 with options
+		-An Math::Int64
+
