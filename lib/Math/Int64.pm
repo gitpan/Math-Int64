@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 BEGIN {
-    our $VERSION = '0.02';
+    our $VERSION = '0.03';
 
     require XSLoader;
     XSLoader::load('Math::Int64', $VERSION);
@@ -182,7 +182,7 @@ For instance:
 
 =item uint64_to_native
 
-This functions are similar to their int64 counterparts, but
+These functions are similar to their int64 counterparts, but
 manipulate 64 bit unsigned integers.
 
 =back

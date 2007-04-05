@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 34;
+use Test::More tests => 40;
 
 use Math::Int64 qw(int64 int64_to_number
                    net_to_int64 int64_to_net
@@ -89,3 +89,21 @@ ok (!($j >= $i));
 ok (int(log(int64(1)<<50)/log(2)+0.001) == 50);
 
 # 35
+
+my $n = int64_to_net(-1);
+ok (join(" ", unpack "C*" => $n) eq join(" ", (255) x 8));
+
+ok (net_to_int64($n) == -1);
+
+ok (native_to_int64(int64_to_native(-1)) == -1);
+
+ok (native_to_int64(int64_to_native(0)) == 0);
+
+ok (native_to_int64(int64_to_native(-12343)) == -12343);
+
+# 40
+
+$n = pack(NN => 0x01020304, 0x05060708);
+
+ok (net_to_int64($n) == ((int64(0x01020304) << 32) + 0x05060708));
+

@@ -1,5 +1,12 @@
 Revision history for Perl extension Math::Int64.
 
+0.03  5 Apr, 2007
+        - use SvIOK_UV instead of SvUOK (that's not supported in older
+          perls)
+        - int64_to_net and uint64_to_net were only accepting
+          Math::U?Int64 objects
+        - some more tests added
+
 0.02  4 Apr, 2007
         - support for uint64 added
         - autodetect strtoll, atoll, etc. support

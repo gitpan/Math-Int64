@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                Math-Int64
-version:             0.02
+version:             0.03
 abstract:            Manipulate 64 bits integers in Perl
 license:             ~
 generated_by:        ExtUtils::MakeMaker version 6.32

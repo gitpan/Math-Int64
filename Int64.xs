@@ -102,7 +102,7 @@ SvI64(pTHX_ SV *sv) {
     if (!SvOK(sv)) {
         return 0;
     }
-    if (SvUOK(sv)) {
+    if (SvIOK_UV(sv)) {
         return SvUV(sv);
     }
     if (SvIOK(sv)) {
@@ -125,7 +125,7 @@ SvU64(pTHX_ SV *sv) {
     if (!SvOK(sv)) {
         return 0;
     }
-    if (SvUOK(sv)) {
+    if (SvIOK_UV(sv)) {
         return SvUV(sv);
     }
     if (SvIOK(sv)) {
@@ -263,7 +263,7 @@ miu64_int64_to_net(self)
     SV *self
 PREINIT:
     char *pv;
-    int64_t i64 = SvI64x(self);
+    int64_t i64 = SvI64(aTHX_ self);
     int i;
 CODE:
     RETVAL = newSV(8);
@@ -281,7 +281,7 @@ miu64_uint64_to_net(self)
     SV *self
 PREINIT:
     char *pv;
-    uint64_t u64 = SvU64x(self);
+    uint64_t u64 = SvU64(aTHX_ self);
     int i;
 CODE:
     RETVAL = newSV(8);
