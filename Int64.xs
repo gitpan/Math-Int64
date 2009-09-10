@@ -11,9 +11,27 @@
 static HV *package_int64_stash;
 static HV *package_uint64_stash;
 
+#ifdef __MINGW32__
+#include <stdint.h>
+#include <stdlib.h>
+#define INT64_HAS_ATOLL
+#endif
+
+#ifdef _MSC_VER
+#include <stdlib.h>
+typedef __int64 int64_t;
+typedef unsigned __int64 uint64_t;
+#define INT64_HAS__ATOI64;
+
+#define atoll _atoi64
+#define strtoull _strtoui64
+#endif
+
 #if !defined(INT64_HAS_ATOLL)
 #  if defined(INT64_HAS_STRTOLL)
 #    define atoll(x) strtoll((x), NULL, 10)
+#  elif defined(INT64_HAS__ATOI64)
+#    define atoll(x) _atoi64(x)
 #  else
 #    error "no int64 parsing function available from C library"
 #  endif

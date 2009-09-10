@@ -1,5 +1,9 @@
 Revision history for Perl extension Math::Int64.
 
+0.04  10 Sep, 2009
+        - make it work under Strawberry Perl and probably other perl
+          Windows ports! (bug report and patch by Sisyphus)
+
 0.03  5 Apr, 2007
         - use SvIOK_UV instead of SvUOK (that's not supported in older
           perls)
