@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Math-Int64
-version:            0.14
+version:            0.15
 abstract:           Manipulate 64 bits integers in Perl
 author:
     - Salvador Fandino <sfandino@yahoo.com>
