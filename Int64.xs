@@ -24,6 +24,7 @@ typedef unsigned __int64 uint64_t;
 #endif
 
 #include "strtoint64.h"
+#include "isaac64.h"
 
 #if defined(INT64_BACKEND_NV)
 #  define BACKEND "NV"
@@ -39,7 +40,7 @@ typedef unsigned __int64 uint64_t;
 #  error "unsupported backend"
 #endif
 
-int
+static int
 SvI64OK(pTHX_ SV *sv) {
     if (SvROK(sv)) {
         SV *si64 = SvRV(sv);
@@ -48,7 +49,7 @@ SvI64OK(pTHX_ SV *sv) {
     return 0;
 }
 
-int
+static int
 SvU64OK(pTHX_ SV *sv) {
     if (SvROK(sv)) {
         SV *su64 = SvRV(sv);
@@ -57,7 +58,7 @@ SvU64OK(pTHX_ SV *sv) {
     return 0;
 }
 
-SV *
+static SV *
 newSVi64(pTHX_ int64_t i64) {
     SV *sv;
     SV *si64 = newSV(0);
@@ -69,7 +70,7 @@ newSVi64(pTHX_ int64_t i64) {
     return sv;
 }
 
-SV *
+static SV *
 newSVu64(pTHX_ uint64_t u64) {
     SV *sv;
     SV *su64 = newSV(0);
@@ -84,7 +85,7 @@ newSVu64(pTHX_ uint64_t u64) {
 #define SvI64X(sv) (*(int64_t*)(&(SvI64Y(SvRV(sv)))))
 #define SvU64X(sv) (*(uint64_t*)(&(SvI64Y(SvRV(sv)))))
 
-SV *
+static SV *
 SvSI64(pTHX_ SV *sv) {
     if (SvRV(sv)) {
         SV *si64 = SvRV(sv);
@@ -94,7 +95,7 @@ SvSI64(pTHX_ SV *sv) {
     Perl_croak(aTHX_ "internal error: reference to NV expected");
 }
 
-SV *
+static SV *
 SvSU64(pTHX_ SV *sv) {
     if (SvRV(sv)) {
         SV *su64 = SvRV(sv);
@@ -107,7 +108,7 @@ SvSU64(pTHX_ SV *sv) {
 #define SvI64x(sv) (*(int64_t*)(&(SvI64Y(SvSI64(aTHX_ sv)))))
 #define SvU64x(sv) (*(uint64_t*)(&(SvI64Y(SvSU64(aTHX_ sv)))))
 
-int64_t
+static int64_t
 SvI64(pTHX_ SV *sv) {
     if (!SvOK(sv)) {
         return 0;
@@ -130,7 +131,7 @@ SvI64(pTHX_ SV *sv) {
     return strtoint64(SvPV_nolen(sv), 10);
 }
 
-uint64_t
+static uint64_t
 SvU64(pTHX_ SV *sv) {
     if (!SvOK(sv)) {
         return 0;
@@ -152,7 +153,7 @@ SvU64(pTHX_ SV *sv) {
     return strtoint64(SvPV_nolen(sv), 10);
 }
 
-SV *
+static SV *
 si64_to_number(pTHX_ SV *sv) {
     int64_t i64 = SvI64(aTHX_ sv);
     if (i64 < 0) {
@@ -168,7 +169,7 @@ si64_to_number(pTHX_ SV *sv) {
     return newSVnv(i64);
 }
 
-SV *
+static SV *
 su64_to_number(pTHX_ SV *sv) {
     uint64_t u64 = SvU64(aTHX_ sv);
     UV uv = u64;
@@ -179,7 +180,7 @@ su64_to_number(pTHX_ SV *sv) {
 
 #define I64STRLEN 65
 
-SV *
+static SV *
 u64_to_string_with_sign(pTHX_ uint64_t u64, int base, int sign) {
     char str[I64STRLEN];
     int len = 0;
@@ -206,7 +207,7 @@ u64_to_string_with_sign(pTHX_ uint64_t u64, int base, int sign) {
     }
 }
 
-SV *
+static SV *
 i64_to_string(pTHX_ int64_t i64, int base) {
     if (i64 < 0) {    
         return u64_to_string_with_sign(aTHX_ -i64, base, 1);
@@ -218,16 +219,17 @@ MODULE = Math::Int64		PACKAGE = Math::Int64		PREFIX=miu64_
 PROTOTYPES: DISABLE
 
 BOOT:
-package_int64_stash = gv_stashsv(newSVpv("Math::Int64", 0), TRUE);
-package_uint64_stash = gv_stashsv(newSVpv("Math::UInt64", 0), TRUE);
-capi_hash = get_hv("Math::Int64::C_API", TRUE|GV_ADDMULTI);
-hv_stores(capi_hash, "version", newSViv(1));
-hv_stores(capi_hash, "newSVi64", newSViv(PTR2IV(&newSVi64)));
-hv_stores(capi_hash, "newSVu64", newSViv(PTR2IV(&newSVu64)));
-hv_stores(capi_hash, "SvI64", newSViv(PTR2IV(&SvI64)));
-hv_stores(capi_hash, "SvU64", newSViv(PTR2IV(&SvU64)));
-hv_stores(capi_hash, "SvI64OK", newSViv(PTR2IV(&SvI64OK)));
-hv_stores(capi_hash, "SvU64OK", newSViv(PTR2IV(&SvU64OK)));
+    package_int64_stash = gv_stashsv(newSVpv("Math::Int64", 0), TRUE);
+    package_uint64_stash = gv_stashsv(newSVpv("Math::UInt64", 0), TRUE);
+    capi_hash = get_hv("Math::Int64::C_API", TRUE|GV_ADDMULTI);
+    hv_stores(capi_hash, "version", newSViv(1));
+    hv_stores(capi_hash, "newSVi64", newSViv(PTR2IV(&newSVi64)));
+    hv_stores(capi_hash, "newSVu64", newSViv(PTR2IV(&newSVu64)));
+    hv_stores(capi_hash, "SvI64", newSViv(PTR2IV(&SvI64)));
+    hv_stores(capi_hash, "SvU64", newSViv(PTR2IV(&SvU64)));
+    hv_stores(capi_hash, "SvI64OK", newSViv(PTR2IV(&SvI64OK)));
+    hv_stores(capi_hash, "SvU64OK", newSViv(PTR2IV(&SvU64OK)));
+    randinit(0);
 
 char *
 miu64__backend()
@@ -474,6 +476,45 @@ CODE:
 OUTPUT:
     RETVAL
 
+
+SV *
+miu64_int64_rand()
+CODE:
+    RETVAL = newSVi64(aTHX_ rand64());
+OUTPUT:
+    RETVAL
+
+SV *
+miu64_uint64_rand()
+CODE:
+    RETVAL = newSVu64(aTHX_ rand64());
+OUTPUT:
+    RETVAL
+
+void
+miu64_int64_srand(seed=&PL_sv_undef)
+    SV *seed
+PREINIT:
+CODE:
+    if (SvOK(seed) && SvCUR(seed)) {
+        STRLEN len;
+        const char *pv = SvPV_const(seed, len);
+        char *shadow = (char*)randrsl;
+        int i;
+        if (len > sizeof(randrsl)) len = sizeof(randrsl);
+        Zero(shadow, sizeof(randrsl), char);
+        Copy(pv, shadow, len, char);
+
+        /* make the seed endianness agnostic */
+        for (i = 0; i < RANDSIZ; i++) {
+            char *p = shadow + i * sizeof(uint64_t);
+            randrsl[i] = (((((((((((((uint64_t)p[0] << 8) + p[1]) << 8) + p[2]) << 8) + p[3]) << 8) +
+                                               p[4] << 8) + p[5]) << 8) + p[6]) << 8) + p[7];
+        }
+        randinit(1);
+    }
+    else
+        randinit(0);
 
 MODULE = Math::Int64		PACKAGE = Math::Int64		PREFIX=mi64
 PROTOTYPES: DISABLE
