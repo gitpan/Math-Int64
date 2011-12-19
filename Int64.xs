@@ -12,6 +12,8 @@ static HV *package_int64_stash;
 static HV *package_uint64_stash;
 static HV *capi_hash;
 
+static int may_die_on_overflow;
+
 #ifdef __MINGW32__
 #include <stdint.h>
 #endif
@@ -21,6 +23,34 @@ static HV *capi_hash;
 typedef __int64 int64_t;
 typedef unsigned __int64 uint64_t;
 #endif
+
+static int
+check_die_on_overflow_hint(pTHX) {
+    // const PERL_CONTEXT *cx = caller_cx(0, NULL);
+    // SV *hint = cop_hints_fetch_pvs(cx->blk_oldcop, "Math::Int64::die_on_overflow", 0);
+    SV *hint = cop_hints_fetch_pvs(PL_curcop, "Math::Int64::die_on_overflow", 0);
+    return (hint && SvTRUE(hint));
+}
+
+//#define die_on_overflow if (may_die_on_overflow && check_die_on_overflow_hint(aTHX))
+
+static void
+overflow(pTHX_ char *msg) {
+    if (check_die_on_overflow_hint(aTHX))
+        Perl_croak(aTHX_ "Math::Int64 overflow: %s", msg);
+}
+
+static char *out_of_bounds_error_s = "number is out of bounds for int64_t conversion";
+static char *out_of_bounds_error_u = "number is out of bounds for uint64_t conversion";
+static char *mul_error            = "multiplication overflows";
+static char *add_error            = "addition overflows";
+static char *sub_error            = "subtraction overflows";
+static char *inc_error            = "increment operation wraps";
+static char *dec_error            = "decrement operation wraps";
+static char *left_b_error         = "left-shift right operand is out of bounds";
+static char *left_error           = "left shift overflows";
+static char *right_b_error        = "right-shift right operand is out of bounds";
+static char *right_error          = "right shift overflows";
 
 #include "strtoint64.h"
 #include "isaac64.h"
@@ -113,21 +143,33 @@ SvI64(pTHX_ SV *sv) {
         return 0;
     }
     if (SvIOK_UV(sv)) {
-        return SvUV(sv);
+        UV uv = SvUV(sv);
+        if (may_die_on_overflow &&
+            (uv > INT64_MAX)) overflow(aTHX_ out_of_bounds_error_s);
+        return uv;
     }
     if (SvIOK(sv)) {
         return SvIV(sv);
     }
     if (SvNOK(sv)) {
-        return SvNV(sv);
+        NV nv = SvNV(sv);
+        if (may_die_on_overflow &&
+            ((nv >= 0x1p63) || (nv < -0x1p63))) overflow(aTHX_ out_of_bounds_error_s);
+        return nv;
     }
     if (SvROK(sv)) {
         SV *si64 = SvRV(sv);
-        if (si64 && (SvTYPE(si64) >= SVt_I64) && (sv_isa(sv, "Math::Int64") || sv_isa(sv, "Math::UInt64"))) {
-            return *(int64_t*)(&(SvI64Y(si64)));
+        if (si64 && (SvTYPE(si64) >= SVt_I64)) {
+            if (sv_isa(sv, "Math::Int64"))
+                return *(int64_t*)(&(SvI64Y(si64)));
+            if (sv_isa(sv, "Math::UInt64")) {
+                uint64_t u = *(uint64_t*)(&(SvI64Y(si64)));
+                if (may_die_on_overflow && (u > INT64_MAX)) overflow(aTHX_ out_of_bounds_error_s);
+                return u;
+            }
         }
     }
-    return strtoint64(SvPV_nolen(sv), 10);
+    return strtoint64(aTHX_ SvPV_nolen(sv), 10, 1);
 }
 
 static uint64_t
@@ -139,17 +181,31 @@ SvU64(pTHX_ SV *sv) {
         return SvUV(sv);
     }
     if (SvIOK(sv)) {
+        IV iv = SvIV(sv);
+        if (may_die_on_overflow &&
+            (iv < 0) ) overflow(aTHX_ out_of_bounds_error_u);
         return SvIV(sv);
     }
     if (SvNOK(sv)) {
-        return SvNV(sv);
+        NV nv = SvNV(sv);
+        // fprintf(stderr, "        nv: %15f\nuint64_max: %15f\n", nv, (NV)UINT64_MAX);
+        if (may_die_on_overflow &&
+            ( (nv < 0) || (nv >= 0x1p64) ) ) overflow(aTHX_ out_of_bounds_error_u);
+        return nv;
     }
     if (SvROK(sv)) {
         SV *su64 = SvRV(sv);
-        if (su64 && (SvTYPE(su64) >= SVt_I64) && (sv_isa(sv, "Math::UInt64")) || sv_isa(sv, "Math::Int64"))
-            return *(uint64_t*)(&(SvI64Y(su64)));
+        if (su64 && (SvTYPE(su64) >= SVt_I64)) {
+            if (sv_isa(sv, "Math::UInt64"))
+                return *(uint64_t*)(&(SvI64Y(su64)));
+            if (sv_isa(sv, "Math::Int64")) {
+                int64_t i = *(int64_t*)(&(SvI64Y(su64)));
+                if (may_die_on_overflow && (i < 0)) overflow(aTHX_ out_of_bounds_error_u);
+                return i;
+            }
+        }
     }
-    return strtoint64(SvPV_nolen(sv), 10);
+    return strtoint64(aTHX_ SvPV_nolen(sv), 10, 0);
 }
 
 static SV *
@@ -217,7 +273,9 @@ i64_to_string(pTHX_ int64_t i64, int base) {
 MODULE = Math::Int64		PACKAGE = Math::Int64		PREFIX=miu64_
 PROTOTYPES: DISABLE
 
+
 BOOT:
+    may_die_on_overflow = 0;
     package_int64_stash = gv_stashsv(newSVpv("Math::Int64", 0), TRUE);
     package_uint64_stash = gv_stashsv(newSVpv("Math::UInt64", 0), TRUE);
     capi_hash = get_hv("Math::Int64::C_API", TRUE|GV_ADDMULTI);
@@ -236,6 +294,12 @@ CODE:
     RETVAL = BACKEND;
 OUTPUT:
     RETVAL
+
+void
+miu64__set_may_die_on_overflow(v)
+    int v
+CODE:
+    may_die_on_overflow = v;
 
 SV *
 miu64_int64(value=&PL_sv_undef)
@@ -446,7 +510,7 @@ miu64_string_to_int64(str, base = 0)
     const char *str;
     int base;
 CODE:
-    RETVAL = newSVi64(aTHX_ strtoint64(str, base));
+    RETVAL = newSVi64(aTHX_ strtoint64(aTHX_ str, base, 1));
 OUTPUT:
     RETVAL
 
@@ -455,7 +519,7 @@ miu64_string_to_uint64(str, base = 0)
     const char *str;
     int base;
 CODE:
-    RETVAL = newSVu64(aTHX_ strtoint64(str, base));
+    RETVAL = newSVu64(aTHX_ strtoint64(aTHX_ str, base, 0));
 OUTPUT:
     RETVAL
 
@@ -463,7 +527,7 @@ SV *
 miu64_hex_to_int64(str)
     const char *str;
 CODE:
-    RETVAL = newSVi64(aTHX_ strtoint64(str, 16));
+    RETVAL = newSVi64(aTHX_ strtoint64(aTHX_ str, 16, 1));
 OUTPUT:
     RETVAL
 
@@ -471,7 +535,7 @@ SV *
 miu64_hex_to_uint64(str)
     const char *str;
 CODE:
-    RETVAL = newSVu64(aTHX_ strtoint64(str, 16));
+    RETVAL = newSVu64(aTHX_ strtoint64(aTHX_ str, 16, 0));
 OUTPUT:
     RETVAL
 
@@ -524,7 +588,9 @@ mi64_inc(self, other, rev)
     SV *other = NO_INIT
     SV *rev = NO_INIT
 CODE:
+    if (may_die_on_overflow && (SvI64x(self) == INT64_MAX)) overflow(aTHX_ inc_error);
     SvI64x(self)++;
+
     RETVAL = self;
     SvREFCNT_inc(RETVAL);
 OUTPUT:
@@ -536,6 +602,7 @@ mi64_dec(self, other, rev)
     SV *other = NO_INIT
     SV *rev = NO_INIT
 CODE:
+    if (may_die_on_overflow && (SvI64x(self) == INT64_MIN)) overflow(aTHX_ dec_error);
     SvI64x(self)--;
     RETVAL = self;
     SvREFCNT_inc(RETVAL);
@@ -548,21 +615,18 @@ mi64_add(self, other, rev)
     SV *other
     SV *rev
 CODE:
-    /*
-    fprintf(stderr, "self: ");
-    sv_dump(self);
-    fprintf(stderr, "other: ");
-    sv_dump(other);
-    fprintf(stderr, "rev: ");
-    sv_dump(rev);
-    fprintf(stderr, "\n");
-    */
-    if (SvOK(rev)) 
-        RETVAL = newSVi64(aTHX_ SvI64x(self) + SvI64(aTHX_ other));
+    int64_t a = SvI64x(self);
+    int64_t b = SvI64(aTHX_ other);
+    if ( may_die_on_overflow &&
+         ( a > 0
+           ? ( (b > 0) && (INT64_MAX - a < b) )
+           : ( (b < 0) && (INT64_MIN - a > b) ) ) ) overflow(aTHX_ add_error);
+    if (SvOK(rev))
+        RETVAL = newSVi64(aTHX_ a + b);
     else {
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
-        SvI64x(self) += SvI64(aTHX_ other);
+        SvI64x(self) = a + b;
     }
 OUTPUT:
     RETVAL
@@ -573,15 +637,22 @@ mi64_sub(self, other, rev)
     SV *other
     SV *rev
 CODE:
+    int64_t a = SvI64x(self);
+    int64_t b = SvI64(aTHX_ other);
+    if (SvTRUE(rev)) {
+        int64_t tmp = a;
+        a = b; b = tmp;
+    }
+    if ( may_die_on_overflow &&
+         ( a > 0
+           ? ( ( b < 0) && (a - INT64_MAX > b) )
+           : ( ( b > 0) && (a - INT64_MIN < b) ) ) ) overflow(aTHX_ sub_error);
     if (SvOK(rev))
-        RETVAL = newSVi64(aTHX_
-                          SvTRUE(rev)
-                          ? SvI64(aTHX_ other) - SvI64x(self)
-                          : SvI64x(self) - SvI64(aTHX_ other));
+        RETVAL = newSVi64(aTHX_ a - b);
     else {
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
-        SvI64x(self) -= SvI64(aTHX_ other);
+        SvI64x(self) = a - b;
     }
 OUTPUT:
     RETVAL
@@ -592,12 +663,39 @@ mi64_mul(self, other, rev)
     SV *other
     SV *rev
 CODE:
+    int64_t a1 = SvI64x(self);
+    int64_t b1 = SvI64(aTHX_ other);
+    if (may_die_on_overflow) {
+        int neg = 0;
+        uint64_t a, b, rl, rh;
+        if (a1 < 0) {
+            a = -a1;
+            neg ^= 1;
+        }
+        else a = a1;
+        if (b1 < 0) {
+            b = -b1;
+            neg ^= 1;
+        }
+        else b = b1;
+        if (a < b) {
+            uint64_t tmp = a;
+            a = b; b = tmp;
+        }
+        if (b > UINT32_MAX) overflow(aTHX_ mul_error);
+        else {
+            rl = (a & UINT32_MAX) * b;
+            rh = (a >> 32) * b + (rl >> 32);
+            if (rh > UINT32_MAX) overflow(aTHX_ mul_error);
+        }
+        if (a * b > (neg ? (~(uint64_t)INT64_MIN + 1) : INT64_MAX)) overflow(aTHX_ mul_error);
+    }
     if (SvOK(rev))
-        RETVAL = newSVi64(aTHX_ SvI64x(self) * SvI64(aTHX_ other));
+        RETVAL = newSVi64(aTHX_ a1 * b1);
     else {
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
-        SvI64x(self) *= SvI64(aTHX_ other);
+        SvI64x(self) = a1 * b1;
     }
 OUTPUT:
     RETVAL
@@ -672,16 +770,33 @@ SV *mi64_left(self, other, rev)
     SV *self
     SV *other
     SV *rev
+PREINIT:
+    int64_t a;
+    uint64_t b;
 CODE:
+    if (SvTRUE(rev)) {
+        a = SvI64(aTHX_ other);
+        b = SvU64x(self);
+    }
+    else {
+        a = SvI64x(self);
+        b = SvU64(aTHX_ other);
+    }
+    if ( may_die_on_overflow ) {
+        uint64_t sign = a < 0 ? -1 : 0;
+        if (b > 63) {
+            if ((b > 64) || (b != sign))
+                overflow(aTHX_ left_error);
+        }
+        else
+            if (a >> (63 - b) != sign) overflow(aTHX_ left_error);
+    }
     if (SvOK(rev))
-        RETVAL = newSVi64(aTHX_
-                          SvTRUE(rev)
-                          ? SvI64(aTHX_ other) << SvI64x(self)
-                          : SvI64x(self) << SvI64(aTHX_ other) );
+        RETVAL = newSVi64(aTHX_ a << b);
     else {
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
-        SvI64x(self) <<= SvI64(aTHX_ other);
+        SvI64x(self) = (a << b);
     }
 OUTPUT:
     RETVAL
@@ -691,15 +806,23 @@ SV *mi64_right(self, other, rev)
     SV *other
     SV *rev
 CODE:
+    int64_t a;
+    uint64_t b;
+    if (SvTRUE(rev)) {
+        a = SvI64(aTHX_ other);
+        b = SvU64x(self);
+    }
+    else {
+        a = SvI64x(self);
+        b = SvU64(aTHX_ other);
+    }
+    if ( may_die_on_overflow && (b > 64) ) overflow(aTHX_ right_error);
     if (SvOK(rev))
-        RETVAL = newSVi64(aTHX_
-                          SvTRUE(rev)
-                          ? SvI64(aTHX_ other) >> SvI64x(self)
-                          : SvI64x(self) >> SvI64(aTHX_ other) );
+        RETVAL = newSVi64(aTHX_ a >> b);
     else {
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
-        SvI64x(self) >>= SvI64(aTHX_ other);
+        SvI64x(self) = (a >> b);
     }
 OUTPUT:
     RETVAL
@@ -928,6 +1051,7 @@ mu64_inc(self, other, rev)
     SV *other = NO_INIT
     SV *rev = NO_INIT
 CODE:
+    if (may_die_on_overflow && (SvU64x(self) == UINT64_MAX)) overflow(aTHX_ inc_error);
     SvU64x(self)++;
     RETVAL = self;
     SvREFCNT_inc(RETVAL);
@@ -940,6 +1064,7 @@ mu64_dec(self, other, rev)
     SV *other = NO_INIT
     SV *rev = NO_INIT
 CODE:
+    if (may_die_on_overflow && (SvU64x(self) == 0)) overflow(aTHX_ dec_error);
     SvU64x(self)--;
     RETVAL = self;
     SvREFCNT_inc(RETVAL);
@@ -952,21 +1077,15 @@ mu64_add(self, other, rev)
     SV *other
     SV *rev
 CODE:
-    /*
-    fprintf(stderr, "self: ");
-    sv_dump(self);
-    fprintf(stderr, "other: ");
-    sv_dump(other);
-    fprintf(stderr, "rev: ");
-    sv_dump(rev);
-    fprintf(stderr, "\n");
-    */
+    uint64_t a = SvU64x(self);
+    uint64_t b = SvU64(aTHX_ other);
+    if (may_die_on_overflow && (UINT64_MAX - a < b)) overflow(aTHX_ add_error);
     if (SvOK(rev)) 
-        RETVAL = newSVu64(aTHX_ SvU64x(self) + SvU64(aTHX_ other));
+        RETVAL = newSVu64(aTHX_ a + b);
     else {
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
-        SvU64x(self) += SvU64(aTHX_ other);
+        SvU64x(self) = a + b;
     }
 OUTPUT:
     RETVAL
@@ -977,15 +1096,22 @@ mu64_sub(self, other, rev)
     SV *other
     SV *rev
 CODE:
+    uint64_t a, b;
+    if (SvTRUE(rev)) {
+        a = SvU64(aTHX_ other);
+        b = SvU64x(self);
+    }
+    else {
+        a = SvU64x(self);
+        b = SvU64(aTHX_ other);
+    }
+    if (may_die_on_overflow && (b > a)) overflow(aTHX_ dec_error);
     if (SvOK(rev))
-        RETVAL = newSVu64(aTHX_
-                          SvTRUE(rev)
-                          ? SvU64(aTHX_ other) - SvU64x(self)
-                          : SvU64x(self) - SvU64(aTHX_ other));
+        RETVAL = newSVu64(aTHX_ a - b);
     else {
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
-        SvU64x(self) -= SvU64(aTHX_ other);
+        SvU64x(self) = a - b;
     }
 OUTPUT:
     RETVAL
@@ -996,12 +1122,27 @@ mu64_mul(self, other, rev)
     SV *other
     SV *rev
 CODE:
+    int64_t a = SvI64x(self);
+    int64_t b = SvI64(aTHX_ other);
+    if (may_die_on_overflow) {
+        if (a < b) {
+            uint64_t tmp = a;
+            a = b; b = tmp;
+        }
+        if (b > UINT32_MAX) overflow(aTHX_ mul_error);
+        else {
+            uint64_t rl, rh;
+            rl = (a & UINT32_MAX) * b;
+            rh = (a >> 32) * b + (rl >> 32);
+            if (rh > UINT32_MAX) overflow(aTHX_ mul_error);
+        }
+    }
     if (SvOK(rev))
-        RETVAL = newSVu64(aTHX_ SvU64x(self) * SvU64(aTHX_ other));
+        RETVAL = newSVu64(aTHX_ a * b);
     else {
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
-        SvU64x(self) *= SvU64(aTHX_ other);
+        SvU64x(self) = a * b;
     }
 OUTPUT:
     RETVAL
@@ -1077,15 +1218,26 @@ SV *mu64_left(self, other, rev)
     SV *other
     SV *rev
 CODE:
+    uint64_t a;
+    uint64_t b;
+    if (SvTRUE(rev)) {
+        a = SvI64(aTHX_ other);
+        b = SvU64x(self);
+    }
+    else {
+        a = SvI64x(self);
+        b = SvU64(aTHX_ other);
+    }
+    if (may_die_on_overflow) {
+        if (b > 64) overflow(aTHX_ left_b_error);
+        if ((a >> (64 - b)) != 0 ) overflow(aTHX_ left_error);
+    }
     if (SvOK(rev))
-        RETVAL = newSVu64(aTHX_
-                          SvTRUE(rev)
-                          ? SvU64(aTHX_ other) << SvU64x(self)
-                          : SvU64x(self) << SvU64(aTHX_ other) );
+        RETVAL = newSVu64(aTHX_ a << b);
     else {
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
-        SvU64x(self) <<= SvU64(aTHX_ other);
+        SvU64x(self) = (a << b);
     }
 OUTPUT:
     RETVAL
@@ -1095,15 +1247,23 @@ SV *mu64_right(self, other, rev)
     SV *other
     SV *rev
 CODE:
+    uint64_t a;
+    uint64_t b;
+    if (SvTRUE(rev)) {
+        a = SvI64(aTHX_ other);
+        b = SvU64x(self);
+    }
+    else {
+        a = SvI64x(self);
+        b = SvU64(aTHX_ other);
+    }
+    if ( may_die_on_overflow && (b > 64)) overflow(aTHX_ right_b_error);
     if (SvOK(rev))
-        RETVAL = newSVu64(aTHX_
-                          SvTRUE(rev)
-                          ? SvU64(aTHX_ other) >> SvU64x(self)
-                          : SvU64x(self) >> SvU64(aTHX_ other) );
+        RETVAL = newSVu64(aTHX_ a >> b);
     else {
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
-        SvU64x(self) >>= SvU64(aTHX_ other);
+        SvU64x(self) = (a >> b);
     }
 OUTPUT:
     RETVAL
