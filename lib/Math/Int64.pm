@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 BEGIN {
-    our $VERSION = '0.18_01';
+    our $VERSION = '0.18_02';
 
     require XSLoader;
     XSLoader::load('Math::Int64', $VERSION);
@@ -233,7 +233,8 @@ next character is '0', in which case it is taken as 8 (octal).
 
 Underscore characters (C<_>) between the digits are ignored.
 
-No overflow checks are performed by this function.
+No overflow checks are performed by this function unless the
+C<die_on_overflow> pragma is used (see L</Die on overflow> below).
 
 See also L<strtoll(3)>.
 
@@ -309,6 +310,11 @@ The pragma can also be activated as follows:
 
   use Math::Int64 ':die_on_overflow';
 
+Once this pragma is used, several Math::Int64 operations may become
+slower. Deactivating the pragma will not make them fast again.
+
+On Perl 5.8.x, as lexical pragmas support is not available, the pragma
+C<die_on_overflow> pragma is global and can not be deactivated.
 
 =head2 Fallback to native 64bit support if available
 
