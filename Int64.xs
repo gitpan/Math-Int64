@@ -8,8 +8,6 @@
 
 #include "ppport.h"
 
-static HV *package_int64_stash;
-static HV *package_uint64_stash;
 static HV *capi_hash;
 
 static int may_die_on_overflow;
@@ -125,7 +123,7 @@ newSVi64(pTHX_ int64_t i64) {
     *(int64_t*)(&(SvI64Y(si64))) = i64;
     SvI64_onY(si64);
     sv = newRV_noinc(si64);
-    sv_bless(sv, package_int64_stash);
+    sv_bless(sv, gv_stashpvs("Math::Int64", TRUE));
     return sv;
 }
 
@@ -137,7 +135,7 @@ newSVu64(pTHX_ uint64_t u64) {
     *(int64_t*)(&(SvI64Y(su64))) = u64;
     SvI64_onY(su64);
     sv = newRV_noinc(su64);
-    sv_bless(sv, package_uint64_stash);
+    sv_bless(sv, gv_stashpvs("Math::UInt64", TRUE));
     return sv;
 }
 
@@ -169,55 +167,76 @@ SvSU64(pTHX_ SV *sv) {
 
 static int64_t
 SvI64(pTHX_ SV *sv) {
-    if (!SvOK(sv)) {
-        return 0;
-    }
-    if (SvIOK_UV(sv)) {
-        UV uv = SvUV(sv);
-        if (may_die_on_overflow &&
-            (uv > INT64_MAX)) overflow(aTHX_ out_of_bounds_error_s);
-        return uv;
-    }
-    if (SvIOK(sv)) {
-        return SvIV(sv);
-    }
-    if (SvNOK(sv)) {
-        NV nv = SvNV(sv);
-        if (may_die_on_overflow &&
-            ((nv >= 0x1p63) || (nv < -0x1p63))) overflow(aTHX_ out_of_bounds_error_s);
-        return nv;
-    }
     if (SvROK(sv)) {
-        GV *method;
         SV *si64 = SvRV(sv);
-        if (si64 && (SvTYPE(si64) >= SVt_I64)) {
-            if (sv_isa(sv, "Math::Int64"))
-                return *(int64_t*)(&(SvI64Y(si64)));
-            if (sv_isa(sv, "Math::UInt64")) {
-                uint64_t u = *(uint64_t*)(&(SvI64Y(si64)));
-                if (may_die_on_overflow && (u > INT64_MAX)) overflow(aTHX_ out_of_bounds_error_s);
-                return u;
+        if (si64 && SvOBJECT(si64)) {
+            GV *method;
+            HV *stash = SvSTASH(si64);
+            char const * classname = HvNAME_get(stash);
+            if (strncmp(classname, "Math::", 6) == 0) {
+                int u;
+                if (classname[6] == 'U') {
+                    u = 1;
+                    classname += 7;
+                }
+                else {
+                    u = 0;
+                    classname += 6;
+                }
+                if (strcmp(classname, "Int64") == 0) {
+                    if (SvTYPE(si64) < SVt_I64)
+                        Perl_croak(aTHX_ "Wrong internal representation for %s object", HvNAME_get(stash));
+                    if (u) {
+                        uint64_t u = *(uint64_t*)(&(SvI64Y(si64)));
+                        if (may_die_on_overflow && (u > INT64_MAX)) overflow(aTHX_ out_of_bounds_error_s);
+                        return u;
+                    }
+                    else {
+                        return *(int64_t*)(&(SvI64Y(si64)));
+                    }
+                }
+            }
+            method = gv_fetchmethod(stash, "as_int64");
+            if (method) {
+                SV *result;
+                int count;
+                dSP;
+                ENTER;
+                SAVETMPS;
+                PUSHSTACKi(PERLSI_MAGIC);
+                PUSHMARK(SP);
+                XPUSHs(sv);
+                PUTBACK;
+                count = perl_call_sv( (SV*)method, G_SCALAR );
+                SPAGAIN;
+                if (count != 1)
+                    Perl_croak(aTHX_ "internal error: method call returned %d values, 1 expected", count);
+                result = newSVsv(POPs);
+                PUTBACK;
+                POPSTACK;
+                SPAGAIN;
+                FREETMPS;
+                LEAVE;
+                return SvI64(aTHX_ sv_2mortal(result));
             }
         }
-        method = gv_fetchmethod(SvSTASH(si64), "as_int64");
-        if (method) {
-            SV *result;
-            int count;
-            dSP;
-            ENTER;
-            SAVETMPS;
-            PUSHMARK(SP);
-            XPUSHs(sv);
-            PUTBACK;
-            count = perl_call_sv( (SV*)method, G_SCALAR );
-            SPAGAIN;
-            if (count != 1)
-                Perl_croak(aTHX_ "internal error: method call returned %d values, 1 expected", count);
-            result = newSVsv(POPs);
-            PUTBACK;
-            FREETMPS;
-            LEAVE;
-            return SvI64(aTHX_ sv_2mortal(result));
+    }
+    else {
+        SvGETMAGIC(sv);
+        if (SvIOK(sv)) {
+            if (SvIOK_UV(sv)) {
+                UV uv = SvUV(sv);
+                if (may_die_on_overflow &&
+                    (uv > INT64_MAX)) overflow(aTHX_ out_of_bounds_error_s);
+                return uv;
+            }
+            return SvIV(sv);
+        }
+        if (SvNOK(sv)) {
+            NV nv = SvNV(sv);
+            if (may_die_on_overflow &&
+                ((nv >= 0x1p63) || (nv < -0x1p63))) overflow(aTHX_ out_of_bounds_error_s);
+            return nv;
         }
     }
     return strtoint64(aTHX_ SvPV_nolen(sv), 10, 1);
@@ -225,56 +244,79 @@ SvI64(pTHX_ SV *sv) {
 
 static uint64_t
 SvU64(pTHX_ SV *sv) {
-    if (!SvOK(sv)) {
-        return 0;
-    }
-    if (SvIOK_UV(sv)) {
-        return SvUV(sv);
-    }
-    if (SvIOK(sv)) {
-        IV iv = SvIV(sv);
-        if (may_die_on_overflow &&
-            (iv < 0) ) overflow(aTHX_ out_of_bounds_error_u);
-        return SvIV(sv);
-    }
-    if (SvNOK(sv)) {
-        NV nv = SvNV(sv);
-        // fprintf(stderr, "        nv: %15f\nuint64_max: %15f\n", nv, (NV)UINT64_MAX);
-        if (may_die_on_overflow &&
-            ( (nv < 0) || (nv >= 0x1p64) ) ) overflow(aTHX_ out_of_bounds_error_u);
-        return nv;
-    }
     if (SvROK(sv)) {
-        GV *method;
         SV *su64 = SvRV(sv);
-        if (su64 && (SvTYPE(su64) >= SVt_I64)) {
-            if (sv_isa(sv, "Math::UInt64"))
-                return *(uint64_t*)(&(SvI64Y(su64)));
-            if (sv_isa(sv, "Math::Int64")) {
-                int64_t i = *(int64_t*)(&(SvI64Y(su64)));
-                if (may_die_on_overflow && (i < 0)) overflow(aTHX_ out_of_bounds_error_u);
-                return i;
+        if (su64 && SvOBJECT(su64)) {
+            GV *method;
+            HV *stash = SvSTASH(su64);
+            char const * classname = HvNAME_get(stash);
+            if (strncmp(classname, "Math::", 6) == 0) {
+                int u;
+                if (classname[6] == 'U') {
+                    u = 1;
+                    classname += 7;
+                }
+                else {
+                    u = 0;
+                    classname += 6;
+                }
+                if (strcmp(classname, "Int64") == 0) {
+                    if (SvTYPE(su64) < SVt_I64)
+                        Perl_croak(aTHX_ "Wrong internal representation for %s object", HvNAME_get(stash));
+                    if (u) {
+                        return *(uint64_t*)(&(SvI64Y(su64)));
+                    }
+                    else {
+                        int64_t i = *(int64_t*)(&(SvI64Y(su64)));
+                        if (may_die_on_overflow && (i < 0)) overflow(aTHX_ out_of_bounds_error_u);
+                        return i;
+                    }
+                }
+            }
+            method = gv_fetchmethod(SvSTASH(su64), "as_uint64");
+            if (method) {
+                SV *result;
+                int count;
+                dSP;
+                ENTER;
+                SAVETMPS;
+                PUSHSTACKi(PERLSI_MAGIC);
+                PUSHMARK(SP);
+                XPUSHs(sv);
+                PUTBACK;
+                count = perl_call_sv( (SV*)method, G_SCALAR );
+                SPAGAIN;
+                if (count != 1)
+                    Perl_croak(aTHX_ "internal error: method call returned %d values, 1 expected", count);
+                result = newSVsv(POPs);
+                PUTBACK;
+                POPSTACK;
+                SPAGAIN;
+                FREETMPS;
+                LEAVE;
+                return SvU64(aTHX_ sv_2mortal(result));
             }
         }
-        method = gv_fetchmethod(SvSTASH(su64), "as_uint64");
-        if (method) {
-            SV *result;
-            int count;
-            dSP;
-            ENTER;
-            SAVETMPS;
-            PUSHMARK(SP);
-            XPUSHs(sv);
-            PUTBACK;
-            count = perl_call_sv( (SV*)method, G_SCALAR );
-            SPAGAIN;
-            if (count != 1)
-                Perl_croak(aTHX_ "internal error: method call returned %d values, 1 expected", count);
-            result = newSVsv(POPs);
-            PUTBACK;
-            FREETMPS;
-            LEAVE;
-            return SvU64(aTHX_ sv_2mortal(result));
+    }
+    else {
+        SvGETMAGIC(sv);
+        if (SvIOK(sv)) {
+            if (SvIOK_UV(sv)) {
+                return SvUV(sv);
+            }
+            else {
+                IV iv = SvIV(sv);
+                if (may_die_on_overflow &&
+                    (iv < 0) ) overflow(aTHX_ out_of_bounds_error_u);
+                return SvIV(sv);
+            }
+        }
+        if (SvNOK(sv)) {
+            NV nv = SvNV(sv);
+            // fprintf(stderr, "        nv: %15f\nuint64_max: %15f\n", nv, (NV)UINT64_MAX);
+            if (may_die_on_overflow &&
+                ( (nv < 0) || (nv >= 0x1p64) ) ) overflow(aTHX_ out_of_bounds_error_u);
+            return nv;
         }
     }
     return strtoint64(aTHX_ SvPV_nolen(sv), 10, 0);
@@ -345,12 +387,9 @@ i64_to_string(pTHX_ int64_t i64, int base) {
 MODULE = Math::Int64		PACKAGE = Math::Int64		PREFIX=miu64_
 PROTOTYPES: DISABLE
 
-
 BOOT:
     may_die_on_overflow = 0;
     may_use_native = 0;
-    package_int64_stash = gv_stashsv(newSVpv("Math::Int64", 0), TRUE);
-    package_uint64_stash = gv_stashsv(newSVpv("Math::UInt64", 0), TRUE);
     capi_hash = get_hv("Math::Int64::C_API", TRUE|GV_ADDMULTI);
     hv_stores(capi_hash, "version", newSViv(1));
     hv_stores(capi_hash, "newSVi64", newSViv(PTR2IV(&newSVi64)));
