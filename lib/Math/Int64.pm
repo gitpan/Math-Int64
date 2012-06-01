@@ -4,11 +4,15 @@ use strict;
 use warnings;
 
 BEGIN {
-    our $VERSION = '0.18_04';
+    our $VERSION = '0.19';
 
     require XSLoader;
     XSLoader::load('Math::Int64', $VERSION);
 }
+
+use constant MAX_INT64  => string_to_int64 ( '0x7fff_ffff_ffff_ffff');
+use constant MIN_INT64  => string_to_int64 ('-0x8000_0000_0000_0000');
+use constant MAX_UINT64 => string_to_uint64( '0xffff_ffff_ffff_ffff');
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -27,6 +31,7 @@ our @EXPORT_OK = qw(int64
                     string_to_uint64 hex_to_uint64
                     uint64_to_string uint64_to_hex
                     uint64_rand
+                    MAX_INT64 MIN_INT64 MAX_UINT64
                   );
 
 my %available_pragmas = map { $_ => 1 } qw(native_if_available
@@ -478,7 +483,7 @@ L<Math::BigInt::GMP>.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright E<copy> 2007, 2009, 2011 by Salvador FandiE<ntilde>o
+Copyright E<copy> 2007, 2009, 2011, 2012 by Salvador FandiE<ntilde>o
 (sfandino@yahoo.com)
 
 This library is free software; you can redistribute it and/or modify

@@ -745,7 +745,6 @@ mi64_inc(self, other, rev)
 CODE:
     if (may_die_on_overflow && (SvI64x(self) == INT64_MAX)) overflow(aTHX_ inc_error);
     SvI64x(self)++;
-
     RETVAL = self;
     SvREFCNT_inc(RETVAL);
 OUTPUT:
@@ -769,9 +768,10 @@ mi64_add(self, other, rev)
     SV *self
     SV *other
     SV *rev
-CODE:
+PREINIT:
     int64_t a = SvI64x(self);
     int64_t b = SvI64(aTHX_ other);
+CODE:
     if ( may_die_on_overflow &&
          ( a > 0
            ? ( (b > 0) && (INT64_MAX - a < b) )
@@ -791,9 +791,10 @@ mi64_sub(self, other, rev)
     SV *self
     SV *other
     SV *rev
-CODE:
+PREINIT:
     int64_t a = SvI64x(self);
     int64_t b = SvI64(aTHX_ other);
+CODE:
     if (SvTRUE(rev)) {
         int64_t tmp = a;
         a = b; b = tmp;
@@ -817,9 +818,10 @@ mi64_mul(self, other, rev)
     SV *self
     SV *other
     SV *rev
-CODE:
+PREINIT:
     int64_t a1 = SvI64x(self);
     int64_t b1 = SvI64(aTHX_ other);
+CODE:
     if (may_die_on_overflow) {
         int neg = 0;
         uint64_t a, b, rl, rh;
@@ -937,21 +939,12 @@ CODE:
         a = SvI64x(self);
         b = SvU64(aTHX_ other);
     }
-    if ( may_die_on_overflow ) {
-        uint64_t sign = a < 0 ? -1 : 0;
-        if (b > 63) {
-            if ((b > 64) || (b != sign))
-                overflow(aTHX_ left_error);
-        }
-        else
-            if (a >> (63 - b) != sign) overflow(aTHX_ left_error);
-    }
+    if (may_die_on_overflow && (b > 64)) overflow(aTHX_ left_error);
     if (SvOK(rev))
-        RETVAL = newSVi64(aTHX_ a << b);
+        RETVAL = newSVi64(aTHX_ (b > 64 ? 0 : (a << b)));
     else {
-        RETVAL = self;
-        SvREFCNT_inc(RETVAL);
-        SvI64x(self) = (a << b);
+        RETVAL = SvREFCNT_inc(self);
+        SvI64x(self) = (b > 64 ? 0 : (a << b));
     }
 OUTPUT:
     RETVAL
@@ -971,12 +964,11 @@ CODE:
         a = SvI64x(self);
         b = SvU64(aTHX_ other);
     }
-    if ( may_die_on_overflow && (b > 64) ) overflow(aTHX_ right_error);
+    if (may_die_on_overflow && (b > 64)) overflow(aTHX_ right_error);
     if (SvOK(rev))
         RETVAL = newSVi64(aTHX_ a >> b);
     else {
-        RETVAL = self;
-        SvREFCNT_inc(RETVAL);
+        RETVAL = SvREFCNT_inc(self);
         SvI64x(self) = (a >> b);
     }
 OUTPUT:
@@ -1208,8 +1200,7 @@ mu64_inc(self, other, rev)
 CODE:
     if (may_die_on_overflow && (SvU64x(self) == UINT64_MAX)) overflow(aTHX_ inc_error);
     SvU64x(self)++;
-    RETVAL = self;
-    SvREFCNT_inc(RETVAL);
+    RETVAL = SvREFCNT_inc(self);
 OUTPUT:
     RETVAL
 
@@ -1221,8 +1212,7 @@ mu64_dec(self, other, rev)
 CODE:
     if (may_die_on_overflow && (SvU64x(self) == 0)) overflow(aTHX_ dec_error);
     SvU64x(self)--;
-    RETVAL = self;
-    SvREFCNT_inc(RETVAL);
+    RETVAL = SvREFCNT_inc(self);
 OUTPUT:
     RETVAL
 
@@ -1250,8 +1240,9 @@ mu64_sub(self, other, rev)
     SV *self
     SV *other
     SV *rev
-CODE:
+PREINIT:
     uint64_t a, b;
+CODE:
     if (SvTRUE(rev)) {
         a = SvU64(aTHX_ other);
         b = SvU64x(self);
@@ -1260,12 +1251,11 @@ CODE:
         a = SvU64x(self);
         b = SvU64(aTHX_ other);
     }
-    if (may_die_on_overflow && (b > a)) overflow(aTHX_ dec_error);
+    if (may_die_on_overflow && (b > a)) overflow(aTHX_ sub_error);
     if (SvOK(rev))
         RETVAL = newSVu64(aTHX_ a - b);
     else {
-        RETVAL = self;
-        SvREFCNT_inc(RETVAL);
+        RETVAL = SvREFCNT_inc(self);
         SvU64x(self) = a - b;
     }
 OUTPUT:
@@ -1295,8 +1285,7 @@ CODE:
     if (SvOK(rev))
         RETVAL = newSVu64(aTHX_ a * b);
     else {
-        RETVAL = self;
-        SvREFCNT_inc(RETVAL);
+        RETVAL = SvREFCNT_inc(self);
         SvU64x(self) = a * b;
     }
 OUTPUT:
@@ -1383,15 +1372,11 @@ CODE:
         a = SvU64x(self);
         b = SvU64(aTHX_ other);
     }
-    if (may_die_on_overflow) {
-        if (b > 64) overflow(aTHX_ left_b_error);
-        if ((a >> (64 - b)) != 0 ) overflow(aTHX_ left_error);
-    }
+    if (may_die_on_overflow && (b > 64)) overflow(aTHX_ left_b_error);
     if (SvOK(rev))
         RETVAL = newSVu64(aTHX_ a << b);
     else {
-        RETVAL = self;
-        SvREFCNT_inc(RETVAL);
+        RETVAL = SvREFCNT_inc(self);
         SvU64x(self) = (a << b);
     }
 OUTPUT:
@@ -1416,8 +1401,7 @@ CODE:
     if (SvOK(rev))
         RETVAL = newSVu64(aTHX_ a >> b);
     else {
-        RETVAL = self;
-        SvREFCNT_inc(RETVAL);
+        RETVAL = SvREFCNT_inc(self);
         SvU64x(self) = (a >> b);
     }
 OUTPUT:

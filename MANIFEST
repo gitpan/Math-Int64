@@ -19,4 +19,5 @@ t/die_on_overflow.t
 c_api/perl_math_int64.c
 c_api/perl_math_int64.h
 c_api/typemap
-META.yml                                 Module meta-data (added by MakeMaker)
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)
