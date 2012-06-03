@@ -21,6 +21,20 @@ static int may_use_native;
 #include <stdlib.h>
 typedef __int64 int64_t;
 typedef unsigned __int64 uint64_t;
+
+#ifndef INT64_MAX
+#define INT64_MAX _I64_MAX
+#endif
+#ifndef INT64_MIN
+#define INT64_MIN _I64_MIN
+#endif
+#ifndef UINT64_MAX
+#define UINT64_MAX _UI64_MAX
+#endif
+#ifndef UINT32_MAX
+#define UINT32_MAX _UI32_MAX
+#endif
+
 #endif
 
 #if (PERL_VERSION >= 10)
@@ -234,8 +248,14 @@ SvI64(pTHX_ SV *sv) {
         }
         if (SvNOK(sv)) {
             NV nv = SvNV(sv);
-            if (may_die_on_overflow &&
-                ((nv >= 0x1p63) || (nv < -0x1p63))) overflow(aTHX_ out_of_bounds_error_s);
+            if (may_die_on_overflow) {
+#ifdef _MSC_VER
+                int64_t i64 = nv;
+                if ((NV)i64 != nv) overflow(aTHX_ out_of_bounds_error_s);
+#else
+                if ((nv >= 0x1p63) || (nv < -0x1p63)) overflow(aTHX_ out_of_bounds_error_s);
+#endif
+	    }
             return nv;
         }
     }
@@ -314,8 +334,14 @@ SvU64(pTHX_ SV *sv) {
         if (SvNOK(sv)) {
             NV nv = SvNV(sv);
             // fprintf(stderr, "        nv: %15f\nuint64_max: %15f\n", nv, (NV)UINT64_MAX);
-            if (may_die_on_overflow &&
-                ( (nv < 0) || (nv >= 0x1p64) ) ) overflow(aTHX_ out_of_bounds_error_u);
+            if (may_die_on_overflow) {
+#ifdef _MSC_VER
+	      uint64_t u64 = nv;
+	      if ((NV)u64 != nv) overflow(aTHX_ out_of_bounds_error_u);
+#else
+	      if ((nv < 0) || (nv >= 0x1p64)) overflow(aTHX_ out_of_bounds_error_u);
+#endif
+	    }
             return nv;
         }
     }
@@ -572,7 +598,7 @@ CODE:
         Copy(pv, &(SvUVX(RETVAL)), 8, char);
     }
     else {
-        newSVu64(aTHX_ 0);
+        RETVAL = newSVu64(aTHX_ 0);
         Copy(pv, &(SvU64X(RETVAL)), 8, char);
     }
 OUTPUT:
@@ -726,9 +752,9 @@ CODE:
         /* make the seed endianness agnostic */
         for (i = 0; i < RANDSIZ; i++) {
             char *p = shadow + i * sizeof(uint64_t);
-            randrsl[i] = (((((((((((((uint64_t)p[0] << 8) + p[1]) << 8) + p[2]) << 8) + p[3]) << 8) +
-                                               p[4] << 8) + p[5]) << 8) + p[6]) << 8) + p[7];
-        }
+            randrsl[i] = (((((((((((((((uint64_t)p[0]) << 8) + p[1]) << 8) + p[2]) << 8) + p[3]) << 8) +
+                               p[4]) << 8) + p[5]) << 8) + p[6]) << 8) + p[7];
+    }
         randinit(1);
     }
     else
@@ -1578,7 +1604,7 @@ mu64_neg(self, other, rev)
     SV *other = NO_INIT
     SV *rev = NO_INIT
 CODE:
-    RETVAL = newSVu64(aTHX_ -SvU64x(self));
+    RETVAL = newSVu64(aTHX_ ~(SvU64x(self)-1));
 OUTPUT:
     RETVAL
 
