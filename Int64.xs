@@ -8,8 +8,6 @@
 
 #include "ppport.h"
 
-static HV *capi_hash;
-
 static int may_die_on_overflow;
 static int may_use_native;
 
@@ -122,20 +120,23 @@ overflow(pTHX_ char *msg) {
         Perl_croak(aTHX_ "Math::Int64 overflow: %s", msg);
 }
 
-static char *out_of_bounds_error_s = "number is out of bounds for int64_t conversion";
-static char *out_of_bounds_error_u = "number is out of bounds for uint64_t conversion";
-static char *mul_error            = "multiplication overflows";
-static char *add_error            = "addition overflows";
-static char *sub_error            = "subtraction overflows";
-static char *inc_error            = "increment operation wraps";
-static char *dec_error            = "decrement operation wraps";
-static char *left_b_error         = "left-shift right operand is out of bounds";
-static char *left_error           = "left shift overflows";
-static char *right_b_error        = "right-shift right operand is out of bounds";
-static char *right_error          = "right shift overflows";
+static char *out_of_bounds_error_s = "Number is out of bounds for int64_t conversion";
+static char *out_of_bounds_error_u = "Number is out of bounds for uint64_t conversion";
+static char *mul_error             = "Multiplication overflows";
+static char *add_error             = "Addition overflows";
+static char *sub_error             = "Subtraction overflows";
+static char *inc_error             = "Increment operation wraps";
+static char *dec_error             = "Decrement operation wraps";
+static char *div_by_0_error        = "Illegal division by zero";
 
 #include "strtoint64.h"
 #include "isaac64.h"
+
+#define MY_CXT_KEY "Math::Int64::isaac64_state" XS_VERSION
+typedef struct {
+    isaac64_state_t is;
+} my_cxt_t;
+START_MY_CXT
 
 #if defined(INT64_BACKEND_NV)
 #  define BACKEND "NV"
@@ -227,7 +228,7 @@ SvI64(pTHX_ SV *sv) {
             GV *method;
             HV *stash = SvSTASH(si64);
             char const * classname = HvNAME_get(stash);
-            if (strncmp(classname, "Math::", 6) == 0) {
+            if (memcmp(classname, "Math::", 6) == 0) {
                 int u;
                 if (classname[6] == 'U') {
                     u = 1;
@@ -237,7 +238,7 @@ SvI64(pTHX_ SV *sv) {
                     u = 0;
                     classname += 6;
                 }
-                if (strcmp(classname, "Int64") == 0) {
+                if (memcmp(classname, "Int64", 6) == 0) {
                     if (SvTYPE(si64) < SVt_I64)
                         Perl_croak(aTHX_ "Wrong internal representation for %s object", HvNAME_get(stash));
                     if (u) {
@@ -304,7 +305,7 @@ SvU64(pTHX_ SV *sv) {
             GV *method;
             HV *stash = SvSTASH(su64);
             char const * classname = HvNAME_get(stash);
-            if (strncmp(classname, "Math::", 6) == 0) {
+            if (memcmp(classname, "Math::", 6) == 0) {
                 int u;
                 if (classname[6] == 'U') {
                     u = 1;
@@ -314,7 +315,7 @@ SvU64(pTHX_ SV *sv) {
                     u = 0;
                     classname += 6;
                 }
-                if (strcmp(classname, "Int64") == 0) {
+                if (memcmp(classname, "Int64", 6) == 0) {
                     if (SvTYPE(su64) < SVt_I64)
                         Perl_croak(aTHX_ "Wrong internal representation for %s object", HvNAME_get(stash));
                     if (u) {
@@ -437,21 +438,23 @@ i64_to_string(pTHX_ int64_t i64, int base) {
     return u64_to_string_with_sign(aTHX_ i64, base, 0);
 }
 
+static uint64_t
+randU64(pTHX) {
+    dMY_CXT;
+    return rand64(&(MY_CXT.is));
+}
+
+#include "c_api.h"
+
 MODULE = Math::Int64		PACKAGE = Math::Int64		PREFIX=miu64_
 PROTOTYPES: DISABLE
 
 BOOT:
+    MY_CXT_INIT;
+    randinit(&(MY_CXT.is), 0);
     may_die_on_overflow = 0;
     may_use_native = 0;
-    capi_hash = get_hv("Math::Int64::C_API", TRUE|GV_ADDMULTI);
-    hv_stores(capi_hash, "version", newSViv(1));
-    hv_stores(capi_hash, "newSVi64", newSViv(PTR2IV(&newSVi64)));
-    hv_stores(capi_hash, "newSVu64", newSViv(PTR2IV(&newSVu64)));
-    hv_stores(capi_hash, "SvI64", newSViv(PTR2IV(&SvI64)));
-    hv_stores(capi_hash, "SvU64", newSViv(PTR2IV(&SvU64)));
-    hv_stores(capi_hash, "SvI64OK", newSViv(PTR2IV(&SvI64OK)));
-    hv_stores(capi_hash, "SvU64OK", newSViv(PTR2IV(&SvU64OK)));
-    randinit(0);
+    INIT_C_API;
 
 char *
 miu64__backend()
@@ -743,7 +746,8 @@ OUTPUT:
 SV *
 miu64_int64_rand()
 PREINIT:
-    int64_t i64 = rand64();
+    dMY_CXT;
+    int64_t i64 = rand64(&(MY_CXT.is));
 CODE:
     RETVAL = ( use_native
                ? newSViv(i64)
@@ -754,7 +758,8 @@ OUTPUT:
 SV *
 miu64_uint64_rand()
 PREINIT:
-    uint64_t u64 = rand64();
+    dMY_CXT;
+    uint64_t u64 = rand64(&(MY_CXT.is));
 CODE:
     RETVAL = ( use_native
                ? newSViv(u64)
@@ -766,26 +771,29 @@ void
 miu64_int64_srand(seed=&PL_sv_undef)
     SV *seed
 PREINIT:
+    dMY_CXT;
+    isaac64_state_t *is;
 CODE:
+    is = &(MY_CXT.is);
     if (SvOK(seed) && SvCUR(seed)) {
         STRLEN len;
         const char *pv = SvPV_const(seed, len);
-        char *shadow = (char*)randrsl;
+        char *shadow = (char*)is->randrsl;
         int i;
-        if (len > sizeof(randrsl)) len = sizeof(randrsl);
-        Zero(shadow, sizeof(randrsl), char);
+        if (len > sizeof(is->randrsl)) len = sizeof(is->randrsl);
+        Zero(shadow, sizeof(is->randrsl), char);
         Copy(pv, shadow, len, char);
 
         /* make the seed endianness agnostic */
         for (i = 0; i < RANDSIZ; i++) {
             char *p = shadow + i * sizeof(uint64_t);
-            randrsl[i] = (((((((((((((((uint64_t)p[0]) << 8) + p[1]) << 8) + p[2]) << 8) + p[3]) << 8) +
-                               p[4]) << 8) + p[5]) << 8) + p[6]) << 8) + p[7];
+            is->randrsl[i] = (((((((((((((((uint64_t)p[0]) << 8) + p[1]) << 8) + p[2]) << 8) + p[3]) << 8) +
+                                   p[4]) << 8) + p[5]) << 8) + p[6]) << 8) + p[7];
     }
-        randinit(1);
+        randinit(is, 1);
     }
     else
-        randinit(0);
+        randinit(is, 0);
 
 MODULE = Math::Int64		PACKAGE = Math::Int64		PREFIX=mi64
 PROTOTYPES: DISABLE
@@ -929,13 +937,13 @@ CODE:
             down = SvI64(aTHX_ other);
         }
         if (!down)
-            Perl_croak(aTHX_ "Illegal division by zero");
+            Perl_croak(aTHX_ div_by_0_error);
         RETVAL = newSVi64(aTHX_ up/down);
     }
     else {
         down = SvI64(aTHX_ other);
         if (!down)
-            Perl_croak(aTHX_ "Illegal division by zero");
+            Perl_croak(aTHX_ div_by_0_error);
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
         SvI64x(self) /= down;
@@ -962,13 +970,13 @@ CODE:
             down = SvI64(aTHX_ other);
         }
         if (!down)
-            Perl_croak(aTHX_ "Illegal division by zero");
+            Perl_croak(aTHX_ div_by_0_error);
         RETVAL = newSVi64(aTHX_ up % down);
     }
     else {
         down = SvI64(aTHX_ other);
         if (!down)
-            Perl_croak(aTHX_ "Illegal division by zero");
+            Perl_croak(aTHX_ div_by_0_error);
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
         SvI64x(self) %= down;
@@ -981,7 +989,7 @@ SV *mi64_left(self, other, rev = &PL_sv_no)
     SV *other
     SV *rev
 PREINIT:
-    int64_t a;
+    int64_t a, r;
     uint64_t b;
 CODE:
     if (SvTRUE(rev)) {
@@ -992,12 +1000,12 @@ CODE:
         a = SvI64x(self);
         b = SvU64(aTHX_ other);
     }
-    if (may_die_on_overflow && (b > 64)) overflow(aTHX_ left_error);
+    r = (b > 63 ? 0 : a << b);
     if (SvOK(rev))
-        RETVAL = newSVi64(aTHX_ (b > 64 ? 0 : (a << b)));
+        RETVAL = newSVi64(aTHX_ r);
     else {
         RETVAL = SvREFCNT_inc(self);
-        SvI64x(self) = (b > 64 ? 0 : (a << b));
+        SvI64x(self) = r;
     }
 OUTPUT:
     RETVAL
@@ -1007,7 +1015,7 @@ SV *mi64_right(self, other, rev = &PL_sv_no)
     SV *other
     SV *rev
 PREINIT:
-    int64_t a;
+    int64_t a, r;
     uint64_t b;
 CODE:
     if (SvTRUE(rev)) {
@@ -1018,12 +1026,12 @@ CODE:
         a = SvI64x(self);
         b = SvU64(aTHX_ other);
     }
-    if (may_die_on_overflow && (b > 64)) overflow(aTHX_ right_error);
+    r = (b > 63 ? (a < 0 ? -1 : 0) : a >> b);
     if (SvOK(rev))
-        RETVAL = newSVi64(aTHX_ a >> b);
+        RETVAL = newSVi64(aTHX_ r);
     else {
         RETVAL = SvREFCNT_inc(self);
-        SvI64x(self) = (a >> b);
+        SvI64x(self) = r;
     }
 OUTPUT:
     RETVAL
@@ -1367,13 +1375,13 @@ CODE:
             down = SvU64(aTHX_ other);
         }
         if (!down)
-            Perl_croak(aTHX_ "Illegal division by zero");
+            Perl_croak(aTHX_ div_by_0_error);
         RETVAL = newSVu64(aTHX_ up/down);
     }
     else {
         down = SvU64(aTHX_ other);
         if (!down)
-            Perl_croak(aTHX_ "Illegal division by zero");
+            Perl_croak(aTHX_ div_by_0_error);
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
         SvU64x(self) /= down;
@@ -1400,13 +1408,13 @@ CODE:
             down = SvU64(aTHX_ other);
         }
         if (!down)
-            Perl_croak(aTHX_ "Illegal division by zero");
+            Perl_croak(aTHX_ div_by_0_error);
         RETVAL = newSVu64(aTHX_ up % down);
     }
     else {
         down = SvU64(aTHX_ other);
         if (!down)
-            Perl_croak(aTHX_ "Illegal division by zero");
+            Perl_croak(aTHX_ div_by_0_error);
         RETVAL = self;
         SvREFCNT_inc(RETVAL);
         SvU64x(self) %= down;
@@ -1419,7 +1427,7 @@ SV *mu64_left(self, other, rev = &PL_sv_no)
     SV *other
     SV *rev
 PREINIT:
-    uint64_t a, b;
+    uint64_t a, b, r;
 CODE:
     if (SvTRUE(rev)) {
         a = SvU64(aTHX_ other);
@@ -1429,12 +1437,12 @@ CODE:
         a = SvU64x(self);
         b = SvU64(aTHX_ other);
     }
-    if (may_die_on_overflow && (b > 64)) overflow(aTHX_ left_b_error);
+    r = (b > 63 ? 0 : a << b);
     if (SvOK(rev))
-        RETVAL = newSVu64(aTHX_ a << b);
+        RETVAL = newSVu64(aTHX_ r);
     else {
         RETVAL = SvREFCNT_inc(self);
-        SvU64x(self) = (a << b);
+        SvU64x(self) = r;
     }
 OUTPUT:
     RETVAL
@@ -1444,7 +1452,7 @@ SV *mu64_right(self, other, rev = &PL_sv_no)
     SV *other
     SV *rev
 PREINIT:
-    uint64_t a, b;
+    uint64_t a, b, r;
 CODE:
     if (SvTRUE(rev)) {
         a = SvU64(aTHX_ other);
@@ -1454,12 +1462,12 @@ CODE:
         a = SvU64x(self);
         b = SvU64(aTHX_ other);
     }
-    if ( may_die_on_overflow && (b > 64)) overflow(aTHX_ right_b_error);
+    r = (b > 63 ? 0 : a >> b);
     if (SvOK(rev))
-        RETVAL = newSVu64(aTHX_ a >> b);
+        RETVAL = newSVu64(aTHX_ r);
     else {
         RETVAL = SvREFCNT_inc(self);
-        SvU64x(self) = (a >> b);
+        SvU64x(self) = r;
     }
 OUTPUT:
     RETVAL

@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 BEGIN {
-    our $VERSION = '0.26';
+    our $VERSION = '0.27_01';
 
     require XSLoader;
     XSLoader::load('Math::Int64', $VERSION);
@@ -363,8 +363,8 @@ In order to use it you need to follow these steps:
 =item *
 
 Import the files C<perl_math_int64.c>, C<perl_math_int64.h> and
-optionally C<typemaps> from Math::Int64 C<c_api> directory into your
-project directory.
+optionally C<typemaps> from Math::Int64 C<c_api_client> directory into
+your project directory.
 
 =item *
 
@@ -381,8 +381,8 @@ sample Makefile.PL below).
 
 =item *
 
-Add a call to the macro C<MATH_INT64_BOOT> to the C<BOOT> section of
-your XS file.
+Add a call to the macro C<PERL_MATH_INT64_LOAD_OR_CROAK> into the
+C<BOOT> section of your XS file.
 
 =back
 
@@ -400,7 +400,7 @@ For instance:
   
   MODULE = Foo64		PACKAGE = Foo64
   BOOT:
-      MATH_INT64_BOOT;
+      PERL_MATH_INT64_LOAD_OR_CROAK;
   
   int64_t
   some_int64()
@@ -420,7 +420,7 @@ For instance:
 
 If the macro C<MATH_INT64_NATIVE_IF_AVAILABLE> is defined before
 including C<perl_math_int64.h> and the perl interpreter is compiled
-with mative 64bit integer support, IVs will be used to represent 64bit
+with native 64bit integer support, IVs will be used to represent 64bit
 integers instead of the object representation provided by Math::Int64.
 
 These are the C macros available from Math::Int64 C API:
@@ -451,6 +451,10 @@ Returns true is the given SV contains a valid int64_t value.
 
 Returns true is the given SV contains a valid uint64_t value.
 
+=item uint64_t randU64(void)
+
+Returns a random 64 bits unsigned integer.
+
 =back
 
 If you require any other function available through the C API don't
@@ -476,8 +480,8 @@ L<http://github.com/salva/p5-Math-Int64>.
 
 The C API usage sample module L<Math::Int64::C_API::Sample>.
 
-Other modules that allow Perl to support larger integers or numbers
-are L<Math::BigInt>, L<Math::BigRat> and L<Math::Big>,
+Other modules providing support for larger integers or numbers are
+L<Math::BigInt>, L<Math::BigRat> and L<Math::Big>,
 L<Math::BigInt::BitVect>, L<Math::BigInt::Pari> and
 L<Math::BigInt::GMP>.
 
