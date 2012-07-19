@@ -2,8 +2,9 @@
  * c_api.h - This file is in the public domain
  * Author: Salvador Fandino <sfandino@yahoo.com>
  *
- * Generated on: 2012-07-18 11:15:47
+ * Generated on: 2012-07-19 08:32:51
  * Math::Int64 version: 2
+ * Module::CAPIMaker version: 0.02
  */
 
 #if !defined (C_API_H_INCLUDED)
