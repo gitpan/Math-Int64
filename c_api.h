@@ -2,8 +2,8 @@
  * c_api.h - This file is in the public domain
  * Author: Salvador Fandino <sfandino@yahoo.com>
  *
- * Generated on: 2012-07-19 08:32:51
- * Math::Int64 version: 2
+ * Generated on: 2012-07-20 07:59:48
+ * Math::Int64 version: 0.27_03
  * Module::CAPIMaker version: 0.02
  */
 
@@ -14,8 +14,8 @@ static void
 init_c_api(pTHX) {
     HV *hv = get_hv("Math::Int64::C_API", TRUE|GV_ADDMULTI);
     hv_store(hv, "min_version", 11, newSViv(1), 0);
-    hv_store(hv, "max_version", 11, newSViv(1), 0);
-    hv_store(hv, "version", 7, newSViv(1), 0);
+    hv_store(hv, "max_version", 11, newSViv(2), 0);
+    hv_store(hv, "version", 7, newSViv(2), 0);
     hv_store(hv, "SvI64", 5, newSViv(PTR2IV(&SvI64)), 0);
     hv_store(hv, "SvI64OK", 7, newSViv(PTR2IV(&SvI64OK)), 0);
     hv_store(hv, "SvU64", 5, newSViv(PTR2IV(&SvU64)), 0);
