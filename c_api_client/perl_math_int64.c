@@ -2,8 +2,8 @@
  * perl_math_int64.c - This file is in the public domain
  * Author: Salvador Fandino <sfandino@yahoo.com>
  *
- * Generated on: 2012-07-20 07:59:48
- * Math::Int64 version: 0.27_03
+ * Generated on: 2012-09-14 09:44:53
+ * Math::Int64 version: 0.27_04
  * Module::CAPIMaker version: 0.02
  */
 

@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 BEGIN {
-    our $VERSION = '0.27_04';
+    our $VERSION = '0.27_05';
 
     require XSLoader;
     XSLoader::load('Math::Int64', $VERSION);
@@ -21,6 +21,7 @@ our @EXPORT_OK = qw(int64
                     net_to_int64 int64_to_net
                     native_to_int64 int64_to_native
                     string_to_int64 hex_to_int64
+                    BER_to_int64 int64_to_BER
                     int64_to_string int64_to_hex
                     int64_rand
                     int64_srand
@@ -29,8 +30,10 @@ our @EXPORT_OK = qw(int64
                     net_to_uint64 uint64_to_net
                     native_to_uint64 uint64_to_native
                     string_to_uint64 hex_to_uint64
+                    BER_to_uint64 uint64_to_BER
                     uint64_to_string uint64_to_hex
                     uint64_rand
+                    BER_length
                     MAX_INT64 MIN_INT64 MAX_UINT64
                   );
 
@@ -245,6 +248,43 @@ base (defaults to 10).
 
 Shortcut for C<int64_to_string($i64, 16)>.
 
+=item int64_to_BER($i64)
+
+Converts the int64 value to its BER representation (see
+L<perlfunc/pack> for a description of the BER format).
+
+In the case of signed numbers, they are transformed into unsigned
+numbers before encoding them in the BER format with the following
+rule:
+
+  $neg = ($i64 < 0 ? 1 : 0);
+  $u64 = (($neg ? ~$i64 : $i64) << 1) | $neg;
+
+That way, positive and negative integers are interleaved as 0, -1, 1,
+2, -2, .... The format is similar to that used by Google protocol
+buffers to encode signed varints but with the most significant groups
+first (protocol buffers uses the least significant groups first
+variant).
+
+If you don't want that preprocessing for signed numbers, just use the
+C<uint64_to_BER> function instead.
+
+=item BER_to_int64($str)
+
+Decodes the int64 number in BER format from the given string.
+
+There must not be any extra bytes on the string after the encoded number.
+
+=item BER_length($str)
+
+Given a string with a BER encoded number at the beginning, this
+function returns the number of bytes it uses.
+
+The rigth way to shift a BER encoded number from the beginning of some
+string is as follows:
+
+   $i64 = BER_to_int64(substr($str, 0, BER_length($str), ''));
+
 =item int64_rand
 
 Generates a 64 bit random number using ISAAC-64 algorithm.
@@ -279,6 +319,14 @@ C<$seed>, if given, should be a 2KB long string.
 
 These functions are similar to their int64 counterparts, but
 manipulate 64 bit unsigned integers.
+
+=item uint64_to_BER($u64)
+
+Encodes the given unsigned integer in BER format (see L<perlfunc/pack>).
+
+=item BER_to_uint64($str)
+
+Decodes from the given string an unsigned number in BER format.
 
 =back
 
@@ -354,6 +402,12 @@ C<as_int64>/C<as_uint64> respectively.
 
 If the corresponding method is not implemented, the object will be
 stringified and then parsed as a base 10 number.
+
+=head2 Storable integration
+
+Objects of classes Math::Int64 and Math::UInt64 implement the
+STORABLE_freeze and STORABLE_thaw methods for a transparent
+integration with L<Storable>.
 
 =head2 C API
 
@@ -466,11 +520,9 @@ hesitate to ask for it!
 
 =head1 BUGS AND SUPPORT
 
-The die_on_overflow feature is completely experimental.
+The Storable integration feature is experimental.
 
 The C API feature is experimental.
-
-The fallback to native 64bit integers feature is experimental.
 
 This module requires int64 support from the C compiler.
 
