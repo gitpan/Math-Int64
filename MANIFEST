@@ -28,4 +28,5 @@ c_api.h
 templates/module_c.temp
 templates/module_h.temp
 examples/rand64.pl
-META.yml                                 Module meta-data (added by MakeMaker)
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)
