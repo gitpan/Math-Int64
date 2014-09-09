@@ -1,9 +1,18 @@
 Revision history for Perl extension Math::Int64.
 
+0.32  Sep 9, 2014
+        - BER_length was broken (bug report and solution by Mark Donovan)
+        - add native U64 to NV conversion support for some versions of MS
+          Visual C (patch by bulk88)
+
+0.31  Jul 17, 2013
+        - fix spelling errors (bug report by dsteinbrunner@pobox.com)
+        - add automatic spelling test
+        - more and better tests (patch contributed by Dave Rolsky)
+
 0.30  Jun 3, 2013
         - fix compilation error/warning when compiling with GCC
           format-security feature enabled (bug report by Jerome Quelin)
-        - use Travis CI for testing
 
 0.29  Jan 7, 2013
         - support perl 5.6 (patch by bulk88)

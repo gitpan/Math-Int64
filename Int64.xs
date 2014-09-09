@@ -68,14 +68,17 @@ nv2u64(NV nv) {
 }
 #define NV2U64(nv) nv2u64(nv)
 
+#  if defined(_MSC_VER) && _MSC_VER >= 1300
+#    define U642NV(u64) ((NV)(u64))
+#  else
 static NV
 u642nv(uint64_t u64) {
     unsigned long h = u64 >> 32;
     unsigned long l = u64 & 0xffffffff;
     return (NV_0x1p32 * h) + (NV)l;
 }
-# define U642NV(nv) u642nv(nv)
-
+#    define U642NV(nv) u642nv(nv)
+#  endif
 #else
 #define NV2U64(nv) ((uint64_t)(nv))
 #define U642NV(u64) ((NV)(u64))
@@ -570,7 +573,7 @@ BER_length(pTHX_ SV *sv) {
     unsigned char *pv = SvPVbyte(sv, len);
     IV i;
     for (i = 0; i < len; i++) {
-        if (pv[i] & 0x80 == 0) return i + 1;
+      if ((pv[i] & 0x80) == 0) return i + 1;
     }
     return -1;
 }

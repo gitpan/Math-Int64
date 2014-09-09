@@ -4,7 +4,7 @@
       "Salvador Fandino <sfandino@yahoo.com>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 6.66, CPAN::Meta::Converter version 2.120921",
+   "generated_by" : "ExtUtils::MakeMaker version 6.98, CPAN::Meta::Converter version 2.140640",
    "license" : [
       "unknown"
    ],
@@ -35,5 +35,10 @@
       }
    },
    "release_status" : "stable",
-   "version" : "0.30"
+   "resources" : {
+      "repository" : {
+         "url" : "https://github.com/salva/p5-Math-Int64"
+      }
+   },
+   "version" : "0.32"
 }
