@@ -1,6 +1,4 @@
 package Math::Int64;
-# git description: d392820
-
 
 use strict;
 use warnings;
@@ -568,7 +566,7 @@ L<Math::BigInt::GMP>.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright E<copy> 2007, 2009, 2011-2014 by Salvador Fandiño
+Copyright E<copy> 2007, 2009, 2011-2014 by Salvador FandiE<ntilde>o
 (sfandino@yahoo.com)
 
 Copyright E<copy> 2014 by Dave Rolsky (autarch@urth.org)
