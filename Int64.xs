@@ -540,9 +540,9 @@ powU64(pTHX_ uint64_t a, uint64_t b) {
 
 static SV *
 uint64_to_BER(pTHX_ uint64_t a) {
-    unsigned char buffer[10];
-    unsigned char *top = buffer + sizeof(buffer);
-    unsigned char *p = top;
+    char buffer[10];
+    char *top = buffer + sizeof(buffer);
+    char *p = top;
     *(--p) = (a & 0x7f);
     while ((a >>= 7)) {
         *(--p) = (a & 0x7f) | 0x80;
@@ -562,7 +562,7 @@ int64_to_BER(pTHX_ int64_t a) {
 static uint64_t
 BER_to_uint64(pTHX_ SV *sv) {
     STRLEN len;
-    unsigned char *pv = SvPVbyte(sv, len);
+    char *pv = SvPVbyte(sv, len);
     uint64_t a;
     IV i;
     for (i = 0, a = 0; i < len; i++) {
@@ -588,7 +588,7 @@ BER_to_int64(pTHX_ SV *sv) {
 static IV
 BER_length(pTHX_ SV *sv) {
     STRLEN len;
-    unsigned char *pv = SvPVbyte(sv, len);
+    char *pv = SvPVbyte(sv, len);
     IV i;
     for (i = 0; i < len; i++) {
       if ((pv[i] & 0x80) == 0) return i + 1;
@@ -999,8 +999,6 @@ PROTOTYPES: DISABLE
 SV *
 mi64_inc(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     if (may_die_on_overflow && (SvI64x(self) == INT64_MAX)) overflow(aTHX_ inc_error);
     SvI64x(self)++;
@@ -1012,8 +1010,6 @@ OUTPUT:
 SV *
 mi64_dec(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     if (may_die_on_overflow && (SvI64x(self) == INT64_MIN)) overflow(aTHX_ dec_error);
     SvI64x(self)--;
@@ -1083,7 +1079,7 @@ PREINIT:
 CODE:
     if (may_die_on_overflow) {
         int neg = 0;
-        uint64_t a, b, rl, rh;
+        uint64_t a, b;
         if (a1 < 0) {
             a = -a1;
             neg ^= 1;
@@ -1294,7 +1290,6 @@ SV *
 mi64_eqn(self, other, rev = NULL)
     SV *self
     SV *other
-    SV *rev = NO_INIT
 CODE:
     RETVAL = ( SvI64x(self) == SvI64(aTHX_ other)
                ? &PL_sv_yes
@@ -1306,7 +1301,6 @@ SV *
 mi64_nen(self, other, rev = NULL)
     SV *self
     SV *other
-    SV *rev = NO_INIT
 CODE:
     RETVAL = ( SvI64x(self) != SvI64(aTHX_ other)
                ? &PL_sv_yes
@@ -1417,8 +1411,6 @@ OUTPUT:
 SV *
 mi64_not(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = SvI64x(self) ? &PL_sv_no : &PL_sv_yes;
 OUTPUT:
@@ -1427,8 +1419,6 @@ OUTPUT:
 SV *
 mi64_bnot(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = newSVi64(aTHX_ ~SvI64x(self));
 OUTPUT:
@@ -1437,8 +1427,6 @@ OUTPUT:
 SV *
 mi64_neg(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = newSVi64(aTHX_ -SvI64x(self));
 OUTPUT:
@@ -1447,8 +1435,6 @@ OUTPUT:
 SV *
 mi64_bool(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = SvI64x(self) ? &PL_sv_yes : &PL_sv_no;
 OUTPUT:
@@ -1457,8 +1443,6 @@ OUTPUT:
 SV *
 mi64_number(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = si64_to_number(aTHX_ self);
 OUTPUT:
@@ -1467,8 +1451,6 @@ OUTPUT:
 SV *
 mi64_clone(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = newSVi64(aTHX_ SvI64x(self));
 OUTPUT:
@@ -1477,8 +1459,6 @@ OUTPUT:
 SV *
 mi64_string(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = i64_to_string(aTHX_ SvI64x(self), 10);
 OUTPUT:
@@ -1487,7 +1467,6 @@ OUTPUT:
 void
 mi64STORABLE_thaw(self, cloning, serialized, ...)
     SV *self
-    SV *clonning = NO_INIT
     SV *serialized
 CODE:
     if (SvROK(self) && sv_isa(self, "Math::Int64")) {
@@ -1502,7 +1481,6 @@ CODE:
 SV *
 mi64STORABLE_freeze(self, cloning = NULL)
     SV *self
-    SV *cloning = NO_INIT
 CODE:
     RETVAL = int64_to_BER(aTHX_ SvI64x(self));
 OUTPUT:
@@ -1514,8 +1492,6 @@ PROTOTYPES: DISABLE
 SV *
 mu64_inc(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     if (may_die_on_overflow && (SvU64x(self) == UINT64_MAX)) overflow(aTHX_ inc_error);
     SvU64x(self)++;
@@ -1526,8 +1502,6 @@ OUTPUT:
 SV *
 mu64_dec(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     if (may_die_on_overflow && (SvU64x(self) == 0)) overflow(aTHX_ dec_error);
     SvU64x(self)--;
@@ -1723,7 +1697,6 @@ mu64_pow(self, other, rev = &PL_sv_no)
     SV *other
     SV *rev
 PREINIT:
-    int sign;
     uint64_t r;
     int64_t a, b;
 CODE:
@@ -1771,7 +1744,6 @@ SV *
 mu64_eqn(self, other, rev = NULL)
     SV *self
     SV *other
-    SV *rev = NO_INIT
 CODE:
     RETVAL = ( SvU64x(self) == SvU64(aTHX_ other)
                ? &PL_sv_yes
@@ -1783,7 +1755,6 @@ SV *
 mu64_nen(self, other, rev = NULL)
     SV *self
     SV *other
-    SV *rev = NO_INIT
 CODE:
     RETVAL = ( SvU64x(self) != SvU64(aTHX_ other)
                ? &PL_sv_yes
@@ -1894,8 +1865,6 @@ OUTPUT:
 SV *
 mu64_not(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = SvU64x(self) ? &PL_sv_no : &PL_sv_yes;
 OUTPUT:
@@ -1904,8 +1873,6 @@ OUTPUT:
 SV *
 mu64_bnot(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = newSVu64(aTHX_ ~SvU64x(self));
 OUTPUT:
@@ -1914,8 +1881,6 @@ OUTPUT:
 SV *
 mu64_neg(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = newSVu64(aTHX_ ~(SvU64x(self)-1));
 OUTPUT:
@@ -1924,8 +1889,6 @@ OUTPUT:
 SV *
 mu64_bool(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = SvU64x(self) ? &PL_sv_yes : &PL_sv_no;
 OUTPUT:
@@ -1934,8 +1897,6 @@ OUTPUT:
 SV *
 mu64_number(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = su64_to_number(aTHX_ self);
 OUTPUT:
@@ -1944,8 +1905,6 @@ OUTPUT:
 SV *
 mu64_clone(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = newSVu64(aTHX_ SvU64x(self));
 OUTPUT:
@@ -1954,8 +1913,6 @@ OUTPUT:
 SV *
 mu64_string(self, other = NULL, rev = NULL)
     SV *self
-    SV *other = NO_INIT
-    SV *rev = NO_INIT
 CODE:
     RETVAL = u64_to_string_with_sign(aTHX_ SvU64x(self), 10, 0);
 OUTPUT:
@@ -1964,7 +1921,6 @@ OUTPUT:
 void
 mu64STORABLE_thaw(self, cloning, serialized, ...)
     SV *self
-    SV *clonning = NO_INIT
     SV *serialized
 CODE:
     if (SvROK(self) && sv_isa(self, "Math::UInt64")) {
@@ -1979,7 +1935,6 @@ CODE:
 SV *
 mu64STORABLE_freeze(self, cloning = NULL)
     SV *self
-    SV *cloning = NO_INIT
 CODE:
     RETVAL = uint64_to_BER(aTHX_ SvU64x(self));
 OUTPUT:

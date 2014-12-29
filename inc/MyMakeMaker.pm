@@ -7,12 +7,24 @@ use Moose;
 
 extends 'Dist::Zilla::Plugin::MakeMaker::Awesome';
 
+override _build_WriteMakefile_args => sub {
+    my $self = shift;
+
+    my $args = super();
+
+    delete $args->{VERSION};
+    $args->{VERSION_FROM} = 'lib/Math/Int64.pm';
+
+    return $args;
+};
+
 override _build_WriteMakefile_dump => sub {
     my $self = shift;
 
     my $dump = super();
     $dump .= <<'EOF';
 $WriteMakefileArgs{DEFINE} = _backend_define() . q{ } . _int64_define();
+$WriteMakefileArgs{CCFLAGS} = _ccflags( $WriteMakefileArgs{CCFLAGS} );
 EOF
 
     return $dump;
@@ -85,6 +97,15 @@ EOF
     print "Using $backend backend\n";
 
     return '-DINT64_BACKEND_' . $backend;
+}
+
+sub _ccflags {
+    my $flags = shift;
+
+    return $flags unless -d '.git';
+
+    return join q{ }, ( $flags || q{} ),
+        qw( -Wall -Wdeclaration-after-statement );
 }
 
 package MY;

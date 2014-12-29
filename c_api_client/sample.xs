@@ -2,8 +2,8 @@
  * sample.xs - This file is in the public domain
  * Author: "Salvador FandiÃ±o <sfandino@yahoo.com>, Dave Rolsky <autarch@urth.org>"
  *
- * Generated on: 2014-12-12 13:50:35
- * Math::Int64 version: 0.49_01
+ * Generated on: 2014-12-29 10:21:44
+ * Math::Int64 version: 0.34_01
  */
 
 #include "EXTERN.h"

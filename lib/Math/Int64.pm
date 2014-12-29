@@ -1,12 +1,12 @@
 package Math::Int64;
-# git description: d392820
+# git description: 4790606
 
 
 use strict;
 use warnings;
 
 BEGIN {
-our $VERSION = '0.49_01';
+our $VERSION = '0.34_01';
 require XSLoader;
 XSLoader::load('Math::Int64', $VERSION);
 }

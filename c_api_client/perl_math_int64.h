@@ -3,9 +3,9 @@
  * Author: "Salvador FandiÃ±o <sfandino@yahoo.com>, Dave Rolsky <autarch@urth.org>"
  * Version: 2.1
  *
- * Generated on: 2014-12-12 13:50:35
- * Math::Int64 version: 0.49_01
- * Module::CAPIMaker version: 0.02
+ * Generated on: 2014-12-29 10:21:44
+ * Math::Int64 version: 0.34_01
+ * Module::CAPIMaker version: 
  */
 
 #if !defined (PERL_MATH_INT64_H_INCLUDED)

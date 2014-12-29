@@ -36,12 +36,13 @@ my %WriteMakefileArgs = (
     "Storable" => 0,
     "Test::More" => "0.88"
   },
-  "VERSION" => "0.49_01",
+  "VERSION_FROM" => "lib/Math/Int64.pm",
   "test" => {
     "TESTS" => "t/*.t"
   }
 );
 $WriteMakefileArgs{DEFINE} = _backend_define() . q{ } . _int64_define();
+$WriteMakefileArgs{CCFLAGS} = _ccflags( $WriteMakefileArgs{CCFLAGS} );
 
 my %FallbackPrereqs = (
   "Exporter" => 0,
@@ -122,6 +123,15 @@ EOF
     print "Using $backend backend\n";
 
     return '-DINT64_BACKEND_' . $backend;
+}
+
+sub _ccflags {
+    my $flags = shift;
+
+    return $flags unless -d '.git';
+
+    return join q{ }, ( $flags || q{} ),
+        qw( -Wall -Wdeclaration-after-statement );
 }
 
 package MY;
